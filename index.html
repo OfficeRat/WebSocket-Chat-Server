@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WebSocket Chat</title>
+    <style>
+        #Chat {
+            border: 1px solid #ccc;
+            padding: 10px;
+            height: 200px;
+            overflow-y: auto;
+        }
+    </style>
+</head>
+
+<body>
+
+    <p id="connectedClients">Connected clients: Loading...</p>
+    <div id="Chat"></div>
+    <input type="text" id="Text" placeholder="Type your message..." onkeydown="handleEnter(event)">
+    <button onclick="SendMessage()">Send</button>
+
+    <script>
+        function generateUID() {
+            const randomPart = Math.random().toString(16).substr(2, 8);
+            return `${randomPart}`;
+        }
+        const username = generateUID()
+        let socket = new WebSocket("ws://" + window.location.host + "/ws");
+
+        socket.onopen = () => {
+            console.log("Successfully Connected");
+            socket.send(`CHAT; ${username} Connected`)
+            getClients()
+        }
+
+        socket.onclose = (event) => {
+            console.log("Socket Closed Connection: ", event);
+
+        }
+
+        socket.onmessage = (msg) => {
+            const data = msg.data;
+            //console.log(data)
+            var [prefix, content] = data.split(";");
+            
+            switch (prefix) {
+                case "CHAT":
+                    const chatDiv = document.getElementById("Chat");
+                    chatDiv.innerHTML += `<p>${content}</p>`;
+                    chatDiv.scrollTop = chatDiv.scrollHeight;
+                    break;
+                case "CLIENTS":
+                    updateConnectedClients(content)
+                default:
+                    break;
+            }
+
+        }
+
+
+        socket.onerror = (error) => {
+            console.log("Socket Error: ", error);
+        }
+
+        function SendMessage() {
+            const data = document.getElementById("Text").value;
+            if (data == "") {
+                return
+            }
+            socket.send(`CHAT; ${username}:${data}`);
+
+            // Clear the input field after sending the message
+            document.getElementById("Text").value = '';
+        }
+
+        function handleEnter(event) {
+            if (event.key === "Enter") {
+                event.preventDefault(); // Prevent the default Enter key behavior (new line)
+                SendMessage(); // Call the function associated with the button
+            }
+        }
+
+        function getClients() {
+            socket.send("/connected_clients")
+        }
+        function updateConnectedClients(clients) {
+            const connectedClients = document.getElementById("connectedClients");
+            connectedClients.innerHTML = `Connected Clients: ${clients}`
+        }
+
+
+    </script>
+
+</body>
+
+</html>
